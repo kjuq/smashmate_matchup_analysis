@@ -14,11 +14,9 @@ import (
 )
 
 const baseURL string = "https://smashmate.net/rate/"
-const roomId int = 114157 //72751
 
-var url string = baseURL + strconv.Itoa(roomId)
-
-func ScrapeMatch() (Player, Player, error) {
+func ScrapeMatch(roomId int) (Player, Player, error) {
+	url := baseURL + strconv.Itoa(roomId)
 	var winner, loser Player
 	nonPlayer := Player{rate: -1}
 
@@ -80,7 +78,6 @@ func ScrapeMatch() (Player, Player, error) {
 			loser = nonPlayer
 		}
 
-		//fmt.Println(playerName, rate, character, matchStatus)
 	})
 
 	return winner, loser, nil
@@ -98,13 +95,11 @@ func sqlConnect() (*sql.DB, error) {
 }
 
 func insertPlayerData(db *sql.DB, roomId int, winner Player, loser Player) (error) {
-	_, err := db.Exec("insert into `user` values (999996, 'ファイターさん', 'mario', 1500, 'ファイターに', 'samus', 1600);")
-	
-	return err
-}
+	tableName := "test_table"
 
-func insertExample(db *sql.DB) (error) {
-	_, err := db.Exec("insert into `user` values (999996, 'ファイターさん', 'mario', 1500, 'ファイターに', 'samus', 1600);")
+	exp := fmt.Sprintf("insert into `%s` values (%d, '%s', '%s', %d, '%s', '%s', %d);", tableName, roomId, winner.name, winner.fighter, winner.rate, loser.name, loser.fighter, loser.rate)
+
+	_, err := db.Exec(exp)
 	
 	return err
 }
@@ -117,23 +112,28 @@ type Player struct {
 }
 
 func main() {
-	if winner, loser, err := ScrapeMatch(); err != nil {
-		fmt.Print("error occered")
-		panic(err.Error())
-	} else {
-		fmt.Println(winner)
-		fmt.Println(loser)
-	}
+	minRoom := 100000
+	maxRoom := 100100
+	for roomId := minRoom; roomId < maxRoom; roomId++ {
+		winner, loser, errScrp := ScrapeMatch(roomId)
+		if errScrp != nil {
+			fmt.Print("error occered")
+			panic(errScrp.Error())
+		} else {
+			fmt.Println(winner)
+			fmt.Println(loser)
+		}
 
-	db, err := sqlConnect()
-	if err != nil {
-		panic(err.Error())
-	}
-	defer db.Close()
+		db, errSql := sqlConnect()
+		if errSql != nil {
+			panic(errSql.Error())
+		}
+		defer db.Close()
 
-	if err := insertExample(db); err != nil {
-		panic(err.Error())
+		errInst := insertPlayerData(db, roomId, winner, loser)
+		if errInst != nil {
+			panic(errInst.Error())
+		}
 	}
-
 }
 
