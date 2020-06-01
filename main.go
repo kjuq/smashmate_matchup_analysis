@@ -1,5 +1,8 @@
 package main
 
+// TODO: separate files
+// TODO: implement tests
+
 import (
 	"fmt"
 	"net/http"
@@ -55,7 +58,7 @@ func ScrapeMatch(roomId int) (Player, Player, error) {
 			content := strings.TrimSpace(t.Text())
 			switch j {
 			case 0: // name
-				playerName = content
+				playerName = sqlEscape(content)
 			case 1: // rate
 				rateStr := content
 				rate, _ = strconv.Atoi(rateStr)
@@ -94,8 +97,13 @@ func sqlConnect() (*sql.DB, error) {
     return db, err
 }
 
+func sqlEscape(str string) (string) {
+	result := strings.Replace(str, "'", "''", -1)
+	return result
+}
+
 func insertPlayerData(db *sql.DB, roomId int, winner Player, loser Player) (error) {
-	tableName := "test_table"
+	tableName := "all_data"
 
 	exp := fmt.Sprintf("insert into `%s` values (%d, '%s', '%s', %d, '%s', '%s', %d);", tableName, roomId, winner.name, winner.fighter, winner.rate, loser.name, loser.fighter, loser.rate)
 
@@ -112,28 +120,34 @@ type Player struct {
 }
 
 func main() {
-	minRoom := 100000
-	maxRoom := 100100
-	for roomId := minRoom; roomId < maxRoom; roomId++ {
+	db, errSql := sqlConnect()
+	if errSql != nil {
+		panic(errSql.Error())
+	}
+	defer db.Close()
+
+	minRoom := 23000
+	maxRoom := 173297
+
+	cnt := 0
+	for roomId := minRoom; roomId <= maxRoom; roomId++ {
 		winner, loser, errScrp := ScrapeMatch(roomId)
 		if errScrp != nil {
 			fmt.Print("error occered")
 			panic(errScrp.Error())
-		} else {
-			fmt.Println(winner)
-			fmt.Println(loser)
 		}
-
-		db, errSql := sqlConnect()
-		if errSql != nil {
-			panic(errSql.Error())
-		}
-		defer db.Close()
 
 		errInst := insertPlayerData(db, roomId, winner, loser)
 		if errInst != nil {
 			panic(errInst.Error())
 		}
+
+		if roomId % 100 == 0 {
+			cnt++
+			fmt.Printf("%d done\n", cnt * 100)
+		}
 	}
+
+	fmt.Println("success")
 }
 
