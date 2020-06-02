@@ -126,7 +126,7 @@ func main() {
 	}
 	defer db.Close()
 
-	minRoom := 23000
+	minRoom := 82462
 	maxRoom := 173297
 
 	cnt := 0
