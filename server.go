@@ -1,16 +1,17 @@
 package main
 
 import (
-	"fmt"
+	"github.com/labstack/echo"
 	"net/http"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello world")
-}
-
 func main() {
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	e := echo.New()
+
+	e.GET("/", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"hello": "world"})
+	})
+
+	e.Logger.Fatal(e.Start(":1313"))
 }
 
