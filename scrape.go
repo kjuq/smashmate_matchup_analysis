@@ -8,23 +8,29 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-func ScrapeMatch(roomId int) (Player, Player, error) {
+func ScrapeMatch(roomId int) (RoomInfo, error) {
 	url := baseURL + strconv.Itoa(roomId)
-	var winner, loser Player
-	nonPlayer := Player{rate: -1}
+	roomInfo := RoomInfo{roomId: roomId}
+	nonRoom := RoomInfo{
+		winnerName: "noneName",
+		winnerFighter: "noneFighter",
+		winnerRate: -1,
+		loserName: "noneName",
+		loserFighter: "noneFighter",
+		loserRate: -1}
 
 	res, err := http.Get(url)
 	if err != nil {
-		return nonPlayer, nonPlayer, err
+		return nonRoom, err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return nonPlayer, nonPlayer, fmt.Errorf("status code error: %d %s", res.StatusCode, res.Status)
+		return nonRoom, fmt.Errorf("status code error: %d %s", res.StatusCode, res.Status)
 	}
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return nonPlayer, nonPlayer, err
+		return nonRoom, err
 	}
 
 	title := doc.Find(".col-xs-6")
@@ -61,19 +67,20 @@ func ScrapeMatch(roomId int) (Player, Player, error) {
 
 		switch matchStatus {
 		case "勝ち":
-			isCanceled := false
-			winner = Player{playerName, character, rate, isCanceled}
+			roomInfo.winnerFighter = character
+			roomInfo.winnerName = playerName
+			roomInfo.winnerRate = rate
 		case "負け":
-			isCanceled := false
-			loser = Player{playerName, character, rate, isCanceled}
+			roomInfo.loserFighter = character
+			roomInfo.loserName = playerName
+			roomInfo.loserRate = rate
 		case "対戦中止":
-			winner = nonPlayer
-			loser = nonPlayer
+			roomInfo = nonRoom
 		}
 
 	})
 
-	return winner, loser, nil
+	return roomInfo, nil
 }
 
 func scrapeMultiplePages() error {
@@ -85,22 +92,25 @@ func scrapeMultiplePages() error {
 
 	cnt := 0
 	for roomId := minRoom; roomId <= maxRoom; roomId++ {
-		winner, loser, errScrp := ScrapeMatch(roomId)
+		roomInfo, errScrp := ScrapeMatch(roomId)
 		if errScrp != nil {
 			return errScrp
 		}
 
-		errInst := insertPlayerData(db, roomId, winner, loser)
+		errInst := insertRoomInfo(db, roomInfo)
 		if errInst != nil {
 			return errInst
 		}
 
 		if roomId%100 == 0 {
 			cnt++
-			fmt.Printf("%d done\n", cnt*100)
+			fmt.Printf("count per 100: %d\n", cnt)
 		}
 	}
 
 	fmt.Println("success")
+
 	return nil
+
 }
+

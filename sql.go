@@ -23,30 +23,61 @@ func sqlEscape(str string) string {
 	return result
 }
 
-func getWinnerInfo(db *sql.DB, roomId int) (Player, error) {
-	var winner Player
-	statemnt := fmt.Sprintf(`select winner_player, winner_fighter, winner_rate 
-							 from %s where room_id=%d`,
+func getRoomInfo(db *sql.DB, roomId int) (RoomInfo, error) {
+	var roomInfo RoomInfo
+	statemnt := fmt.Sprintf(`select * from %s where roomId=%d`,
 							 tableName, roomId)
 
-	err := db.QueryRow(statemnt).Scan(&winner.name, &winner.fighter, &winner.rate)
+	err := db.QueryRow(statemnt).Scan(&roomInfo.roomId,
+									  &roomInfo.winnerName,
+									  &roomInfo.winnerFighter,
+									  &roomInfo.winnerRate,
+									  &roomInfo.loserName,
+									  &roomInfo.loserFighter,
+									  &roomInfo.loserRate)
 
-	return winner, err
+	return roomInfo, err
 }
 
-func insertPlayerData(db *sql.DB, roomId int, winner Player, loser Player) error {
+func insertRoomInfo(db *sql.DB, roomInfo RoomInfo) error {
 	statemnt := fmt.Sprintf("insert into `%s` values (%d, '%s', '%s', %d, '%s', '%s', %d);",
 							 tableName,
-							 roomId,
-							 winner.name,
-							 winner.fighter,
-							 winner.rate,
-							 loser.name,
-							 loser.fighter,
-							 loser.rate)
+							 roomInfo.roomId,
+							 roomInfo.winnerName,
+							 roomInfo.winnerFighter,
+							 roomInfo.winnerRate,
+							 roomInfo.loserName,
+							 roomInfo.loserFighter,
+							 roomInfo.loserRate)
 
 	_, err := db.Exec(statemnt)
 
 	return err
+}
+
+func deleteRoomInfo(db *sql.DB, roomId int) error {
+	statemnt := fmt.Sprintf("delete from %s where roomId = %d", tableName, roomId)
+
+	_, err := db.Exec(statemnt)
+
+	return err
+}
+
+func updateRoomInfo(db *sql.DB, roomInfo RoomInfo) error {
+	roomDict := structToDict(roomInfo)
+	for key, val := range roomDict {
+		isUpdatable := true
+		if val == "" { isUpdatable = false }
+		if key == "winnerRate" && val == "-1" { isUpdatable = false }
+		if key == "loserRate" && val == "-1" { isUpdatable = false }
+		if isUpdatable {
+			statemnt := fmt.Sprintf("update %s set %s='%s' where roomId=%d",
+									 tableName, key, val, roomInfo.roomId)
+			_, err := db.Exec(statemnt)
+			if err != nil { return err }
+		}
+	}
+
+	return nil
 }
 
